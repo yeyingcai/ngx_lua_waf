@@ -14,6 +14,7 @@ PathInfoFix = optionIsOn(PathInfoFix)
 attacklog = optionIsOn(attacklog)
 CCDeny = optionIsOn(CCDeny)
 Redirect=optionIsOn(Redirect)
+BlockCheck = optionIsOn(ipBlocklist)
 function getClientIp()
         IP  = ngx.var.remote_addr 
         if IP == nil then
@@ -43,6 +44,22 @@ function log(method,url,data,ruletag)
         write(filename,line)
     end
 end
+
+function alllog(method,ip,data,ruletag)
+    if attacklog then
+        local realIp = getClientIp()
+        local ua = ngx.var.http_user_agent
+        local servername=ngx.var.server_name
+        local time=ngx.localtime()
+        if ua  then
+            line = realIp.." ["..time.."] \""..method.." "..servername.."\" \""..data.."\"  \""..ua.."\" \""..ruletag.."\"\n"
+        else
+            line = realIp.." ["..time.."] \""..method.." "..servername..realIp.."\" \""..data.."\" - \""..ruletag.."\"\n"
+        end
+        local filename = logpath..'/'..servername.."_"..ngx.today().."_sec.log"
+        write(filename,line)
+    end
+end
 ------------------------------------规则读取函数-------------------------------------------------------------------
 function read_rule(var)
     file = io.open(rulepath..'/'..var,"r")
@@ -63,7 +80,8 @@ uarules=read_rule('user-agent')
 wturlrules=read_rule('whiteurl')
 postrules=read_rule('post')
 ckrules=read_rule('cookie')
-
+blacklist=read_rule('blacklist')
+whitelist=read_rule('whitelist')
 
 function say_html()
     if Redirect then
@@ -222,8 +240,8 @@ function get_boundary()
 end
 
 function whiteip()
-    if next(ipWhitelist) ~= nil then
-        for _,ip in pairs(ipWhitelist) do
+    if ipWhitelist then
+        for _,ip in pairs(whitelist) do
             if getClientIp()==ip then
                 return true
             end
@@ -233,9 +251,10 @@ function whiteip()
 end
 
 function blockip()
-     if next(ipBlocklist) ~= nil then
-         for _,ip in pairs(ipBlocklist) do
+     if ipBlocklist then
+         for _,ip in pairs(blacklist) do
              if getClientIp()==ip then
+                 alllog('GET','getClientIp',"-",'this ip in blockip list')
                  ngx.exit(403)
                  return true
              end
