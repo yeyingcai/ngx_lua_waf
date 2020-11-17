@@ -1,4 +1,4 @@
-require 'config'
+--require 'config'
 local match = string.match
 local ngxmatch=ngx.re.match
 local unescape=ngx.unescape_uri
